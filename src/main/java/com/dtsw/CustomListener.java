@@ -32,6 +32,7 @@ public class CustomListener extends MetaStoreEventListener {
         super.onDropTable(tableEvent);
     }
 
+
     @Override
     public void onAddPartition(AddPartitionEvent tableEvent) throws MetaException {
         ArrayList<String> stringArrayList = CollUtil.newArrayList("table: " + tableEvent.getTable(), "partitions: " + CollUtil.join(tableEvent.getPartitionIterator(),","));
@@ -68,6 +69,7 @@ public class CustomListener extends MetaStoreEventListener {
 
     @Override
     public void onLoadPartitionDone(LoadPartitionDoneEvent partSetDoneEvent) throws MetaException {
+        logWithHeader(partSetDoneEvent.getClass().toString() + "-" + MapUtil.join(partSetDoneEvent.getPartitionName(), ",", ":"));
         super.onLoadPartitionDone(partSetDoneEvent);
     }
 
