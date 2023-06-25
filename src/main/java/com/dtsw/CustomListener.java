@@ -5,12 +5,16 @@ import cn.hutool.core.map.MapUtil;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.MetaStoreEventListener;
 import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.hadoop.hive.metastore.api.Partition;
+import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
+import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.events.*;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.sql.*;
 import java.util.ArrayList;
 
 public class CustomListener extends MetaStoreEventListener {
@@ -35,10 +39,19 @@ public class CustomListener extends MetaStoreEventListener {
 
     @Override
     public void onAddPartition(AddPartitionEvent tableEvent) throws MetaException {
+//        tableEvent.getTable().getPartitionKeys().stream().forEach(fs -> fs.);
         ArrayList<String> stringArrayList = CollUtil.newArrayList("table: " + tableEvent.getTable(), "partitions: " + CollUtil.join(tableEvent.getPartitionIterator(),","));
 
         logWithHeader(tableEvent.getClass().toString() + "-" + CollUtil.join(stringArrayList, ","));
         super.onAddPartition(tableEvent);
+    }
+
+    public String getPartitions(Table table, Partition partition) {
+        String tableLocation = table.getSd().getLocation();
+        String partitionLocation = partition.getSd().getLocation();
+
+        String partitionOnlyStr = partitionLocation.replace(tableLocation, "");
+        return  partitionOnlyStr;
     }
 
     @Override
@@ -131,6 +144,39 @@ public class CustomListener extends MetaStoreEventListener {
 
     private void logWithHeader(String str){
         LOGGER.info("[CustomListener][Thread: " + Thread.currentThread().getName()+"] | " + objToStr(str));
+    }
+
+    private void handleEvent(){
+        // 数据库连接信息
+        String url = "jdbc:postgresql://10.37.49.74:5432/dtsw_data_assets";
+        String username = "postgres";
+        String password = "U_tywg_2013";
+
+        // 建立数据库连接
+        try (Connection conn = DriverManager.getConnection(url, username, password)) {
+            // 创建Statement对象
+            Statement statement = conn.createStatement();
+
+            // 查询数据
+            String selectQuery = "SELECT * FROM mytable";
+            ResultSet resultSet = statement.executeQuery(selectQuery);
+
+            // 遍历结果集
+            while (resultSet.next()) {
+                int id = resultSet.getInt("id");
+                String name = resultSet.getString("name");
+                int age = resultSet.getInt("age");
+
+                System.out.println("ID: " + id + ", Name: " + name + ", Age: " + age);
+            }
+
+            // 修改数据
+            String updateQuery = "UPDATE mytable SET age = 30 WHERE id = 1";
+            int rowsAffected = statement.executeUpdate(updateQuery);
+            System.out.println("Rows affected: " + rowsAffected);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
     private String objToStr(String str){
