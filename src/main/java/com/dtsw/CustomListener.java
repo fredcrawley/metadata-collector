@@ -2,12 +2,10 @@ package com.dtsw;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.map.MapUtil;
+import cn.hutool.core.util.StrUtil;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.MetaStoreEventListener;
-import org.apache.hadoop.hive.metastore.api.MetaException;
-import org.apache.hadoop.hive.metastore.api.Partition;
-import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
-import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.metastore.api.*;
 import org.apache.hadoop.hive.metastore.events.*;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
@@ -15,9 +13,43 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.sql.*;
-import java.util.ArrayList;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.Date;
 
 public class CustomListener extends MetaStoreEventListener {
+
+    public HashMap<String, String> partitoinKV;
+
+    public static final String PARTITIONPROVINCECODE = "p_provincecode";
+
+    public static final String PARTITIONPDATE = "p_date";
+
+    public static final String PARTITIONREPORTDATE = "reportdate";
+
+    public static final String PARTITIONHOUR = "p_hour";
+
+
+    public static final String PARTITIONQUARTER = "p_quarter";
+
+
+    public static final String PARTITION5MIN = "p_5min";
+
+
+    public static final String PARTITIONYEAR = "p_year";
+
+
+    public static final String PARTITIONMONTH = "p_month";
+
+
+    public static final String PARTITIONWEEK = "p_week";
+
+
+    public static final String TOTALSIZE = "totalSize";
+
+
+    public static final String NUMFILES = "numFiles";
+
     @Override
     public void onConfigChange(ConfigChangeEvent tableEvent) throws MetaException {
         ArrayList<String> stringArrayList = CollUtil.newArrayList("key: " + tableEvent.getKey(), "new value: " + tableEvent.getNewValue(), "old value: " + tableEvent.getOldValue());
@@ -39,24 +71,191 @@ public class CustomListener extends MetaStoreEventListener {
 
     @Override
     public void onAddPartition(AddPartitionEvent tableEvent) throws MetaException {
-//        tableEvent.getTable().getPartitionKeys().stream().forEach(fs -> fs.);
-        ArrayList<String> stringArrayList = CollUtil.newArrayList("table: " + tableEvent.getTable(), "partitions: " + CollUtil.join(tableEvent.getPartitionIterator(),","));
+        ArrayList<String> stringArrayList = CollUtil.newArrayList("table: " + tableEvent.getTable(), "partitions: " + CollUtil.join(tableEvent.getPartitionIterator(), ","));
 
         logWithHeader(tableEvent.getClass().toString() + "-" + CollUtil.join(stringArrayList, ","));
-        super.onAddPartition(tableEvent);
+
+//        String sqlTemplate = "insert into dtsw_data_meta_table_data_info values (1001, 核心测试, 'hive', {}, {}, {}, {}, 1, {}, {}, {}, {}, {}, {}, {}, 1, {}, null,null );";
+
+        String sqlTemplate = "insert into 'dtsw_data_meta_table_data_info' values (1001, '核心测试', 'hive', '{}', '{}', '{}', '{}', 1, '{}', '{}', '{}', '{}', '{}', '{}', '{}', 1, '{}', null,null);";
+
+        Table table = tableEvent.getTable();
+        Iterator<Partition> partitionIterator = tableEvent.getPartitionIterator();
+        while (partitionIterator.hasNext()){
+            Partition partition = partitionIterator.next();
+
+            Date date = new Date();
+            SimpleDateFormat dateFormat= new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+
+
+//            String formattedSql = StrUtil.format(sqlTemplate, getDbName(table), getTableName(table), getPartitionStr(table, partition), getLocation(table), getPartitionProvincecode(table, partition), getPartitionDate(table, partition), getPartitionWeek(table, partition), getPartitionMonth(table, partition), getPartitionHour(table, partition), getFileSize(partition), getFileCount(partition), dateFormat);
+
+            String dbName = getDbName(table);
+            String tableName = getTableName(table);
+            String partitionStr = getPartitionStr(table, partition);
+            String location = getLocation(table);
+            String partitionProvincecode = getPartitionProvincecode(table, partition);
+            String partitionDate = getPartitionDate(table, partition);
+            String partitionWeek = getPartitionWeek(table, partition);
+            String partitionMonth = getPartitionMonth(table, partition);
+            String partitionHour = getPartitionHour(table, partition);
+            Double fileSize = getFileSize(partition);
+            int fileCount = getFileCount(partition);
+
+            String formattedSql = StrUtil.format(sqlTemplate, dbName, tableName, partitionStr, location, partitionProvincecode, partitionDate, partitionWeek, partitionMonth, partitionHour, fileSize, fileCount, dateFormat);
+            LOGGER.info("Sql is: {} ", formattedSql);
+            executeSql(formattedSql);
+        }
+
     }
 
-    public String getPartitions(Table table, Partition partition) {
+
+    public String getMapValue(String key) {
+
+        if (partitoinKV.containsKey(key)) {
+            String value = partitoinKV.get(key);
+            return value;
+        } else {
+            return null;
+        }
+    }
+
+
+    public String getPartitionMonth(Table table, Partition partition) {
+
+        if (null == partitoinKV) {
+            getPartitions(table, partition);
+        }
+
+        return getMapValue(PARTITIONMONTH);
+
+    }
+
+
+
+    public String getPartitionWeek(Table table, Partition partition) {
+
+        if (null == partitoinKV) {
+            getPartitions(table, partition);
+        }
+
+        return getMapValue(PARTITIONWEEK);
+
+    }
+
+
+
+    public String getPartitionHour(Table table, Partition partition) {
+
+        if (null == partitoinKV) {
+            getPartitions(table, partition);
+        }
+
+        return getMapValue(PARTITIONHOUR);
+
+    }
+
+
+
+    public String getPartitionDate(Table table, Partition partition) {
+
+        if (null == partitoinKV) {
+            getPartitions(table, partition);
+        }
+
+        if (partitoinKV.containsKey(PARTITIONPDATE)  || partitoinKV.containsKey(PARTITIONREPORTDATE)){
+            String p_date = getMapValue(PARTITIONPDATE);
+            return  null == p_date ? getMapValue(PARTITIONREPORTDATE) : p_date;
+        }
+
+        return null;
+
+    }
+
+    public String getPartitionProvincecode(Table table, Partition partition) {
+
+        if (null == partitoinKV) {
+            getPartitions(table, partition);
+        }
+
+        return getMapValue(PARTITIONPROVINCECODE);
+
+    }
+
+
+    public void getPartitions(Table table, Partition partition) {
+        List<FieldSchema> partitionFieldSchema = table.getPartitionKeys();
+        List<String> partitionValues = partition.getValues();
+        assert partitionFieldSchema.size() == partitionValues.size();
+
+        HashMap<String, String> partitoinS = new HashMap<>();
+
+        StringBuilder partitionString = new StringBuilder();
+
+        for (int i = 0; i < partitionFieldSchema.size(); i++) {
+            String partitionKey = partitionFieldSchema.get(i).getName();
+            String partitionValue = partitionValues.get(i);
+            partitoinS.put(partitionKey, partitionValue);
+
+            partitionString.append("/" + partitionKey + "=" + partitionValue);
+        }
+
+        String partitionStr = getPartitionStr(table, partition);
+
+        assert partitionStr.equals(partitionString);
+
+        partitoinKV = partitoinS;
+
+    }
+
+
+    public int getFileCount(Partition partition) {
+
+        String numFiles = getMapValue(NUMFILES);
+        LOGGER.info("numfiles: {}", numFiles);
+        return  null == numFiles ? null : Integer.parseInt(numFiles);
+    }
+
+
+    public Double getFileSize(Partition partition) {
+        String totalSize = getMapValue(TOTALSIZE);
+        return  null == totalSize ? null : Double.parseDouble(totalSize) / 1024 / 1024;
+    }
+
+    public String getDbType(Table table) {
+
+        return "hive";
+    }
+
+    public String getDbName(Table table) {
+        String dbName = table.getDbName();
+
+        return dbName;
+    }
+
+    public String getTableName(Table table) {
+        String tableName = table.getTableName();
+
+        return tableName;
+    }
+
+    public String getLocation(Table table) {
+        String tableLocation = table.getSd().getLocation();
+
+        return tableLocation;
+    }
+
+    public String getPartitionStr(Table table, Partition partition) {
         String tableLocation = table.getSd().getLocation();
         String partitionLocation = partition.getSd().getLocation();
 
-        String partitionOnlyStr = partitionLocation.replace(tableLocation, "");
-        return  partitionOnlyStr;
+        String partitionStr = partitionLocation.replace(tableLocation, "");
+        return partitionStr;
     }
 
     @Override
     public void onDropPartition(DropPartitionEvent tableEvent) throws MetaException {
-        ArrayList<String> stringArrayList = CollUtil.newArrayList("table: " + tableEvent.getTable(), "partitions: " + CollUtil.join(tableEvent.getPartitionIterator(),","));
+        ArrayList<String> stringArrayList = CollUtil.newArrayList("table: " + tableEvent.getTable(), "partitions: " + CollUtil.join(tableEvent.getPartitionIterator(), ","));
 
         logWithHeader(tableEvent.getClass().toString() + "-" + CollUtil.join(stringArrayList, ","));
 
@@ -65,7 +264,7 @@ public class CustomListener extends MetaStoreEventListener {
 
     @Override
     public void onAlterPartition(AlterPartitionEvent tableEvent) throws MetaException {
-        ArrayList<String> stringArrayList = CollUtil.newArrayList("table: " + tableEvent.getTable(), "newPartitions: " + tableEvent.getNewPartition(), "oldPartitions:" +tableEvent.getOldPartition());
+        ArrayList<String> stringArrayList = CollUtil.newArrayList("table: " + tableEvent.getTable(), "newPartitions: " + tableEvent.getNewPartition(), "oldPartitions:" + tableEvent.getOldPartition());
 
         logWithHeader(tableEvent.getClass().toString() + "-" + CollUtil.join(stringArrayList, ","));
     }
@@ -124,7 +323,7 @@ public class CustomListener extends MetaStoreEventListener {
     }
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CustomListener.class);
-    private static final  ObjectMapper objMapper = new ObjectMapper();
+    private static final ObjectMapper objMapper = new ObjectMapper();
 
     public CustomListener(Configuration config) {
         super(config);
@@ -142,11 +341,13 @@ public class CustomListener extends MetaStoreEventListener {
         logWithHeader("AlterTableEvent - new table:" + event.getNewTable().toString());
     }
 
-    private void logWithHeader(String str){
-        LOGGER.info("[CustomListener][Thread: " + Thread.currentThread().getName()+"] | " + objToStr(str));
+    private void logWithHeader(String str) {
+        LOGGER.info("[CustomListener][Thread: " + Thread.currentThread().getName() + "] | " + objToStr(str));
     }
 
-    private void handleEvent(){
+
+
+    private void executeSql(String sql) {
         // 数据库连接信息
         String url = "jdbc:postgresql://10.37.49.74:5432/dtsw_data_assets";
         String username = "postgres";
@@ -158,28 +359,16 @@ public class CustomListener extends MetaStoreEventListener {
             Statement statement = conn.createStatement();
 
             // 查询数据
-            String selectQuery = "SELECT * FROM mytable";
-            ResultSet resultSet = statement.executeQuery(selectQuery);
+            ResultSet resultSet = statement.executeQuery(sql);
 
-            // 遍历结果集
-            while (resultSet.next()) {
-                int id = resultSet.getInt("id");
-                String name = resultSet.getString("name");
-                int age = resultSet.getInt("age");
-
-                System.out.println("ID: " + id + ", Name: " + name + ", Age: " + age);
-            }
-
-            // 修改数据
-            String updateQuery = "UPDATE mytable SET age = 30 WHERE id = 1";
-            int rowsAffected = statement.executeUpdate(updateQuery);
-            System.out.println("Rows affected: " + rowsAffected);
+            boolean b = resultSet.rowInserted();
+            LOGGER.info("insert row result: {}" , String.valueOf(b));
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
 
-    private String objToStr(String str){
+    private String objToStr(String str) {
         try {
             return objMapper.writeValueAsString(str);
         } catch (IOException e) {
