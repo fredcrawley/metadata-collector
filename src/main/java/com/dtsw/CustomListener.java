@@ -2,7 +2,6 @@ package com.dtsw;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.map.MapUtil;
-import cn.hutool.core.util.StrUtil;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.MetaStoreEventListener;
 import org.apache.hadoop.hive.metastore.api.*;
@@ -13,13 +12,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.sql.*;
+import java.sql.Date;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.Date;
 
 public class CustomListener extends MetaStoreEventListener {
 
-    public HashMap<String, String> partitoinKV;
+    public HashMap<String, String> partitionKV;
 
     public static final String PARTITIONPROVINCECODE = "p_provincecode";
 
@@ -77,43 +76,116 @@ public class CustomListener extends MetaStoreEventListener {
 
 //        String sqlTemplate = "insert into dtsw_data_meta_table_data_info values (1001, 核心测试, 'hive', {}, {}, {}, {}, 1, {}, {}, {}, {}, {}, {}, {}, 1, {}, null,null );";
 
-        String sqlTemplate = "insert into 'dtsw_data_meta_table_data_info' values (1001, '核心测试', 'hive', '{}', '{}', '{}', '{}', 1, '{}', '{}', '{}', '{}', '{}', '{}', '{}', 1, '{}', null,null);";
+//        String sqlTemplate = "insert into 'dtsw_data_meta_table_data_info' values (1001, '核心测试', 'hive', '{}', '{}', '{}', '{}', 1, '{}', '{}', '{}', '{}', '{}', '{}', '{}', 1, '{}', null,null);";
+
+
+//        String sqlTemplate = "insert into dtsw_data_meta_table_data_info values (1001, '核心测试', 'hive', ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, 1, ?, null,null ); ";
+
+        String sqlTemplate = "insert into dtsw_data_meta_table_data_info values (1001, '核心测试', 'hive', ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, 1, ?, null,?) ON CONFLICT (project_id,cluster_name,database_type,dbname,table_name,partition_info) DO UPDATE set location=EXCLUDED.location,set p_provincecode=EXCLUDED.p_provincecode,set data_day=EXCLUDED.data_day,set data_week=EXCLUDED.data_week,set data_month=EXCLUDED.data_month,set data_hour=EXCLUDED.data_hour,set file_size=EXCLUDED.file_size,set filt_count=EXCLUDED.filt_count,set is_valid=EXCLUDED.is_valid,set update_time=EXCLUDED.update_time;";
+
+        int partitionCount = 1;
+
+        int batchSize = 100;
 
         Table table = tableEvent.getTable();
         Iterator<Partition> partitionIterator = tableEvent.getPartitionIterator();
-        while (partitionIterator.hasNext()){
-            Partition partition = partitionIterator.next();
 
-            Date date = new Date();
-            SimpleDateFormat dateFormat= new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+//        String url = "jdbc:postgresql://10.37.49.74:5832/dtsw_data_assets";
+        String url = "jdbc:postgresql://172.29.209.147:5832/dtsw_data_assets";
+        String username = "postgres";
+        String password = "U_tywg_2013";
 
+        try (Connection conn = DriverManager.getConnection(url, username, password)) {
+
+            try {
+
+                // 创建Statement对象
+                PreparedStatement preparedStatement = conn.prepareStatement(sqlTemplate);
+
+                while (partitionIterator.hasNext()) {
+
+                    LOGGER.info("partitionCount: {}", partitionCount);
+                    partitionCount++;
+
+                    Partition partition = partitionIterator.next();
+
+                    Date date = new Date(System.currentTimeMillis());
 
 //            String formattedSql = StrUtil.format(sqlTemplate, getDbName(table), getTableName(table), getPartitionStr(table, partition), getLocation(table), getPartitionProvincecode(table, partition), getPartitionDate(table, partition), getPartitionWeek(table, partition), getPartitionMonth(table, partition), getPartitionHour(table, partition), getFileSize(partition), getFileCount(partition), dateFormat);
 
-            String dbName = getDbName(table);
-            String tableName = getTableName(table);
-            String partitionStr = getPartitionStr(table, partition);
-            String location = getLocation(table);
-            String partitionProvincecode = getPartitionProvincecode(table, partition);
-            String partitionDate = getPartitionDate(table, partition);
-            String partitionWeek = getPartitionWeek(table, partition);
-            String partitionMonth = getPartitionMonth(table, partition);
-            String partitionHour = getPartitionHour(table, partition);
-            Double fileSize = getFileSize(partition);
-            int fileCount = getFileCount(partition);
+                    String dbName = getDbName(table);
+                    String tableName = getTableName(table);
+                    String partitionStr = getPartitionStr(table, partition);
+                    String location = getLocation(table);
+                    String partitionProvincecode = getPartitionProvincecode(table, partition);
+                    String partitionDate = getPartitionDate(table, partition);
+                    String partitionWeek = getPartitionWeek(table, partition);
+                    String partitionMonth = getPartitionMonth(table, partition);
+                    String partitionHour = getPartitionHour(table, partition);
+                    String fileSize = getFileSize(partition);
+                    String fileCount = getFileCount(partition);
 
-            String formattedSql = StrUtil.format(sqlTemplate, dbName, tableName, partitionStr, location, partitionProvincecode, partitionDate, partitionWeek, partitionMonth, partitionHour, fileSize, fileCount, dateFormat);
-            LOGGER.info("Sql is: {} ", formattedSql);
-            executeSql(formattedSql);
+
+                    preparedStatement.setString(1, dbName);
+                    preparedStatement.setString(2, tableName);
+                    preparedStatement.setString(3, partitionStr);
+                    preparedStatement.setString(4, location);
+
+                    preparedStatement.setInt(5, null == partitionProvincecode ? -1 : Integer.parseInt(partitionProvincecode));
+                    preparedStatement.setString(6, partitionDate);
+                    preparedStatement.setInt(7, null == partitionWeek ? -1 : Integer.parseInt(partitionWeek));
+                    preparedStatement.setInt(8, null == partitionMonth ? -1 : Integer.parseInt(partitionMonth));
+                    preparedStatement.setInt(9, null == partitionHour ? -1 : Integer.parseInt(partitionHour));
+                    preparedStatement.setDouble(10, null == fileSize ? -1.0 : Double.parseDouble(fileCount));
+                    preparedStatement.setInt(11, null == fileCount ? -1 : Integer.parseInt(fileCount));
+                    preparedStatement.setDate(12, date);
+                    preparedStatement.setDate(13, date);
+
+                    preparedStatement.addBatch();
+
+                    if (partitionCount % batchSize == 0) {
+                        int batch = partitionCount / batchSize;
+                        int[] ints = preparedStatement.executeBatch();
+                        LOGGER.info("insert 第 {} 批次，批量大小: {}, 返回结果result: {}", batch, batchSize, ints);
+                    }
+                }
+
+                int[] ints = preparedStatement.executeBatch();
+                int remained = partitionCount % batchSize;
+                LOGGER.info("insert 剩余批次， 数量: {}，返回结果result: {}", remained, ints);
+            } catch (SQLException e) {
+                e.printStackTrace();
+                conn.rollback();
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
 
+
+    }
+
+
+    private void handleAddPartition(String sql) {
+
+        String sqlTemplate = "insert into dtsw_data_meta_table_data_info values (1001, 核心测试, 'hive', ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, 1, ?, null,null );";
+
+        // 建立数据库连接
+        try (Connection conn = createCon()) {
+            // 创建Statement对象
+            PreparedStatement preparedStatement = conn.prepareStatement(sqlTemplate);
+
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
 
     public String getMapValue(String key) {
 
-        if (partitoinKV.containsKey(key)) {
-            String value = partitoinKV.get(key);
+        if (partitionKV.containsKey(key)) {
+            String value = partitionKV.get(key);
             return value;
         } else {
             return null;
@@ -123,7 +195,7 @@ public class CustomListener extends MetaStoreEventListener {
 
     public String getPartitionMonth(Table table, Partition partition) {
 
-        if (null == partitoinKV) {
+        if (null == partitionKV) {
             getPartitions(table, partition);
         }
 
@@ -132,10 +204,9 @@ public class CustomListener extends MetaStoreEventListener {
     }
 
 
-
     public String getPartitionWeek(Table table, Partition partition) {
 
-        if (null == partitoinKV) {
+        if (null == partitionKV) {
             getPartitions(table, partition);
         }
 
@@ -144,10 +215,9 @@ public class CustomListener extends MetaStoreEventListener {
     }
 
 
-
     public String getPartitionHour(Table table, Partition partition) {
 
-        if (null == partitoinKV) {
+        if (null == partitionKV) {
             getPartitions(table, partition);
         }
 
@@ -156,16 +226,15 @@ public class CustomListener extends MetaStoreEventListener {
     }
 
 
-
     public String getPartitionDate(Table table, Partition partition) {
 
-        if (null == partitoinKV) {
+        if (null == partitionKV) {
             getPartitions(table, partition);
         }
 
-        if (partitoinKV.containsKey(PARTITIONPDATE)  || partitoinKV.containsKey(PARTITIONREPORTDATE)){
+        if (partitionKV.containsKey(PARTITIONPDATE) || partitionKV.containsKey(PARTITIONREPORTDATE)) {
             String p_date = getMapValue(PARTITIONPDATE);
-            return  null == p_date ? getMapValue(PARTITIONREPORTDATE) : p_date;
+            return null == p_date ? getMapValue(PARTITIONREPORTDATE) : p_date;
         }
 
         return null;
@@ -174,7 +243,7 @@ public class CustomListener extends MetaStoreEventListener {
 
     public String getPartitionProvincecode(Table table, Partition partition) {
 
-        if (null == partitoinKV) {
+        if (null == partitionKV) {
             getPartitions(table, partition);
         }
 
@@ -188,14 +257,14 @@ public class CustomListener extends MetaStoreEventListener {
         List<String> partitionValues = partition.getValues();
         assert partitionFieldSchema.size() == partitionValues.size();
 
-        HashMap<String, String> partitoinS = new HashMap<>();
+        HashMap<String, String> partitions = new HashMap<>();
 
         StringBuilder partitionString = new StringBuilder();
 
         for (int i = 0; i < partitionFieldSchema.size(); i++) {
             String partitionKey = partitionFieldSchema.get(i).getName();
             String partitionValue = partitionValues.get(i);
-            partitoinS.put(partitionKey, partitionValue);
+            partitions.put(partitionKey, partitionValue);
 
             partitionString.append("/" + partitionKey + "=" + partitionValue);
         }
@@ -204,22 +273,22 @@ public class CustomListener extends MetaStoreEventListener {
 
         assert partitionStr.equals(partitionString);
 
-        partitoinKV = partitoinS;
+        partitionKV = partitions;
 
     }
 
 
-    public int getFileCount(Partition partition) {
+    public String getFileCount(Partition partition) {
 
         String numFiles = getMapValue(NUMFILES);
         LOGGER.info("numfiles: {}", numFiles);
-        return  null == numFiles ? null : Integer.parseInt(numFiles);
+        return null == numFiles ? null : numFiles;
     }
 
 
-    public Double getFileSize(Partition partition) {
+    public String getFileSize(Partition partition) {
         String totalSize = getMapValue(TOTALSIZE);
-        return  null == totalSize ? null : Double.parseDouble(totalSize) / 1024 / 1024;
+        return null == totalSize ? null : totalSize;
     }
 
     public String getDbType(Table table) {
@@ -346,26 +415,18 @@ public class CustomListener extends MetaStoreEventListener {
     }
 
 
-
-    private void executeSql(String sql) {
-        // 数据库连接信息
-        String url = "jdbc:postgresql://10.37.49.74:5432/dtsw_data_assets";
+    public Connection createCon() {
+        String url = "jdbc:postgresql://10.37.49.74:5832/dtsw_data_assets";
         String username = "postgres";
         String password = "U_tywg_2013";
+        Connection conn = null;
 
-        // 建立数据库连接
-        try (Connection conn = DriverManager.getConnection(url, username, password)) {
-            // 创建Statement对象
-            Statement statement = conn.createStatement();
-
-            // 查询数据
-            ResultSet resultSet = statement.executeQuery(sql);
-
-            boolean b = resultSet.rowInserted();
-            LOGGER.info("insert row result: {}" , String.valueOf(b));
+        try (Connection conTemp = DriverManager.getConnection(url, username, password)) {
+            conn = conTemp;
         } catch (SQLException e) {
             e.printStackTrace();
         }
+        return conn;
     }
 
     private String objToStr(String str) {

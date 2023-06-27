@@ -1,12 +1,27 @@
 import cn.hutool.core.util.StrUtil;
+import com.dtsw.CustomListener;
+import org.apache.commons.collections.map.HashedMap;
+import org.apache.hadoop.hive.metastore.api.Partition;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 public class test1 {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(test1.class);
+
     @Test
-    public void getPartition(){
+    public void getPartition() {
         String a = "location:hdfs://nameservice/ns5/vmax_ns5/zxvmax/telecom/lte/dpi/aggr_location_check_d";
         String b = "location:hdfs://nameservice/ns5/vmax_ns5/zxvmax/telecom/lte/dpi/aggr_location_check_d/p_provincecode=110000/p_date=2023-06-22";
         String replaceStr = b.replace(a, "");
@@ -17,11 +32,114 @@ public class test1 {
 
 
     @Test
-    public void testSqlFormat(){
+    public void testSqlFormat() {
         String sqlTemplate = "insert into 'dtsw_data_meta_table_data_info' values (1001, '核心测试', 'hive', '{}', '{}', '{}', '{}', 1, '{}', '{}', '{}', '{}', '{}', '{}', '{}', 1, '{}', null,null);";
 
-        String formattedSql = StrUtil.format(sqlTemplate, "dbname", "TableName", "PartitionStr", "Location", "PartitionProvincecode", "PartitionDate", "PartitionWeek", "PartitionMonth", "PartitionHour", "FileSize", "FileCount", "dateFormat" );
+        String formattedSql = StrUtil.format(sqlTemplate, "dbname", "TableName", "PartitionStr", "Location", "PartitionProvincecode", "PartitionDate", "PartitionWeek", "PartitionMonth", "PartitionHour", "FileSize", "FileCount", "dateFormat");
         System.out.println(formattedSql);
+
+
     }
+
+
+    public String getMapValue(String key) {
+        HashMap<String, String> partitionKV = new HashMap<>();
+        partitionKV.put("a", "b");
+
+        if (partitionKV.containsKey(key)) {
+            String value = partitionKV.get(key);
+            return value;
+        } else {
+            return null;
+        }
+    }
+
+    @Test
+    public void testGetMap() {
+//        getFileCount();
+
+        Date date = new Date();
+        String s = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss").toString();
+        System.out.println(s);
+    }
+
+
+    public int getFileCount() {
+
+        String numFiles = getMapValue("NUMFILES");
+
+        if (null == numFiles) {
+            System.out.println("it is null");
+        } else {
+            System.out.println("not null");
+            System.out.println(Integer.parseInt(numFiles));
+        }
+//        return  null == numFiles ? null : Integer.parseInt(numFiles);
+        return 3;
+    }
+
+    @Test
+    public void insertPg() {
+        String sqlTemplate = "insert into dtsw_data_meta_table_data_info values (1001, '核心测试', 'hive', ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, 1, ?, null,?) ON CONFLICT (project_id,cluster_name,database_type,dbname,table_name,partition_info) DO UPDATE set location=EXCLUDED.location,set p_provincecode=EXCLUDED.p_provincecode,set data_day=EXCLUDED.data_day,set data_week=EXCLUDED.data_week,set data_month=EXCLUDED.data_month,set data_hour=EXCLUDED.data_hour,set file_size=EXCLUDED.file_size,set filt_count=EXCLUDED.filt_count,set is_valid=EXCLUDED.is_valid,set update_time=EXCLUDED.update_time;";
+
+        String url = "jdbc:postgresql://172.29.209.147:5832/dtsw_data_assets";
+        String username = "postgres";
+        String password = "U_tywg_2013";
+
+        try (Connection conn = DriverManager.getConnection(url, username, password)) {
+
+            try {
+
+                // 创建Statement对象
+                PreparedStatement preparedStatement = conn.prepareStatement(sqlTemplate);
+
+
+                java.sql.Date date = new java.sql.Date(System.currentTimeMillis());
+
+
+                String dbName = "dbname";
+                String tableName = "tablename";
+                String partitionStr = "partitionStr";
+                String location = "location";
+                String partitionProvincecode = "110000";
+                String partitionDate = "2023-06-10";
+                String partitionWeek = "1";
+                String partitionMonth = "1";
+                String partitionHour = "1";
+                String fileSize = "1";
+                String fileCount = "1";
+
+
+                preparedStatement.setString(1, dbName);
+                preparedStatement.setString(2, tableName);
+                preparedStatement.setString(3, partitionStr);
+                preparedStatement.setString(4, location);
+
+                preparedStatement.setInt(5, null == partitionProvincecode ? -1 : Integer.parseInt(partitionProvincecode));
+                preparedStatement.setString(6, partitionDate);
+                preparedStatement.setInt(7, null == partitionWeek ? -1 : Integer.parseInt(partitionWeek));
+                preparedStatement.setInt(8, null == partitionMonth ? -1 : Integer.parseInt(partitionMonth));
+                preparedStatement.setInt(9, null == partitionHour ? -1 : Integer.parseInt(partitionHour));
+                preparedStatement.setDouble(10, null == fileSize ? -1.0 : Double.parseDouble(fileCount));
+                preparedStatement.setInt(11, null == fileCount ? -1 : Integer.parseInt(fileCount));
+                preparedStatement.setDate(12, date);
+                preparedStatement.setDate(13, date);
+
+                preparedStatement.addBatch();
+
+
+                int[] ints = preparedStatement.executeBatch();
+                LOGGER.info("insert 剩余批次， 数量: {}，返回结果result: {}", ints);
+
+            } catch (SQLException e) {
+                e.printStackTrace();
+                conn.rollback();
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
 
 }
