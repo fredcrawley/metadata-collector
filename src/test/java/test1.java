@@ -80,9 +80,10 @@ public class test1 {
 
     @Test
     public void insertPg() {
-        String sqlTemplate = "insert into dtsw_data_meta_table_data_info values (1001, '核心测试', 'hive', ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, 1, ?, null,?) ON CONFLICT (project_id,cluster_name,database_type,dbname,table_name,partition_info) DO UPDATE set location=EXCLUDED.location,set p_provincecode=EXCLUDED.p_provincecode,set data_day=EXCLUDED.data_day,set data_week=EXCLUDED.data_week,set data_month=EXCLUDED.data_month,set data_hour=EXCLUDED.data_hour,set file_size=EXCLUDED.file_size,set filt_count=EXCLUDED.filt_count,set is_valid=EXCLUDED.is_valid,set update_time=EXCLUDED.update_time;";
 
-        String url = "jdbc:postgresql://172.29.209.147:5832/dtsw_data_assets";
+        String sqlTemplate = "insert into dtsw_data_meta_table_data_info values (1001, '核心测试', 'hive', ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, 1, ?, null,?) ON CONFLICT (project_id,cluster_name,database_type,dbname,table_name,partition_info) DO UPDATE set location=EXCLUDED.location, p_provincecode=EXCLUDED.p_provincecode, data_day=EXCLUDED.data_day, data_week=EXCLUDED.data_week, data_month=EXCLUDED.data_month, data_hour=EXCLUDED.data_hour, file_size=EXCLUDED.file_size, file_count=EXCLUDED.file_count, is_valid=EXCLUDED.is_valid, update_time=EXCLUDED.update_time;";
+
+        String url = "jdbc:postgresql://localhost:5832/dtsw_data_assets";
         String username = "postgres";
         String password = "U_tywg_2013";
 
