@@ -6,10 +6,8 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import java.io.File;
+import java.sql.*;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -78,12 +76,42 @@ public class test1 {
         return 3;
     }
 
+
+    @Test
+    public void testArray(){
+
+         int[] a = {1,5,2,72,6};
+        System.out.println(Arrays.toString(a));
+
+        HashMap<String, String> stringStringHashMap = new HashMap<>();
+        stringStringHashMap.put("a", "b");
+        stringStringHashMap.put("c", "d");
+        System.out.println(stringStringHashMap.keySet().toString());
+
+        File qzConfig = new File("QZ_CONFIG_PATH");
+        System.out.println(qzConfig.exists());
+    }
+
+
+    public static final int PROJECT_ID = 1001;
+
+
+    public static final String DATABASE_TYPE = "hive";
+
+
+    public static final String CLUSTER_NAME_KEY = "cluster_name";
+
+
+    public static String CLUSTER_NAME = "核心测试";
     @Test
     public void insertPg() {
 
-        String sqlTemplate = "insert into dtsw_data_meta_table_data_info values (1001, '核心测试', 'hive', ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, 1, ?, null,?) ON CONFLICT (project_id,cluster_name,database_type,dbname,table_name,partition_info) DO UPDATE set location=EXCLUDED.location, p_provincecode=EXCLUDED.p_provincecode, data_day=EXCLUDED.data_day, data_week=EXCLUDED.data_week, data_month=EXCLUDED.data_month, data_hour=EXCLUDED.data_hour, file_size=EXCLUDED.file_size, file_count=EXCLUDED.file_count, is_valid=EXCLUDED.is_valid, update_time=EXCLUDED.update_time;";
+//        String sqlTemplate = "insert into dtsw_data_meta_table_data_info2 values (1001, '核心测试', 'hive', ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, 1, ?, null,?) ON CONFLICT (project_id,cluster_name,database_type,dbname,table_name,partition_info) DO UPDATE set location=EXCLUDED.location, p_provincecode=EXCLUDED.p_provincecode, data_day=EXCLUDED.data_day, data_week=EXCLUDED.data_week, data_month=EXCLUDED.data_month, data_hour=EXCLUDED.data_hour, file_size=EXCLUDED.file_size, file_count=EXCLUDED.file_count, is_valid=EXCLUDED.is_valid, update_time=EXCLUDED.update_time;";
 
-        String url = "jdbc:postgresql://localhost:5832/dtsw_data_assets";
+        String sqlTemplate = "insert into dtsw_data_meta_table_data_info2 values (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, 1, ?, null,?) ON CONFLICT (project_id,cluster_name,database_type,dbname,table_name,partition_info) DO UPDATE set location=EXCLUDED.location, p_provincecode=EXCLUDED.p_provincecode, data_day=EXCLUDED.data_day, data_week=EXCLUDED.data_week, data_month=EXCLUDED.data_month, data_hour=EXCLUDED.data_hour, file_size=EXCLUDED.file_size, file_count=EXCLUDED.file_count, is_valid=EXCLUDED.is_valid, update_time=EXCLUDED.update_time;";
+
+//        String url = "jdbc:postgresql://localhost:5832/dtsw_data_assets";
+        String url = "jdbc:postgresql://172.16.1.128:5832/dtsw_data_assets";
         String username = "postgres";
         String password = "U_tywg_2013";
 
@@ -94,44 +122,62 @@ public class test1 {
                 // 创建Statement对象
                 PreparedStatement preparedStatement = conn.prepareStatement(sqlTemplate);
 
-
-                java.sql.Date date = new java.sql.Date(System.currentTimeMillis());
-
+                Timestamp timestamp = new Timestamp(System.currentTimeMillis());
+                conn.setAutoCommit(false);
 
                 String dbName = "dbname";
                 String tableName = "tablename";
-                String partitionStr = "partitionStr";
+                String partitionStr = "partitionStr2";
                 String location = "location";
                 String partitionProvincecode = "110000";
                 String partitionDate = "2023-06-10";
-                String partitionWeek = "1";
+//                String partitionWeek = "1";
+                String partitionWeek = null;
                 String partitionMonth = "1";
                 String partitionHour = "1";
-                String fileSize = "1";
+                String fileSize = null;
                 String fileCount = "1";
 
 
-                preparedStatement.setString(1, dbName);
-                preparedStatement.setString(2, tableName);
-                preparedStatement.setString(3, partitionStr);
-                preparedStatement.setString(4, location);
+                preparedStatement.setInt(1, PROJECT_ID);
+                preparedStatement.setString(2, CLUSTER_NAME);
+                preparedStatement.setString(3, DATABASE_TYPE);
+                preparedStatement.setString(4, dbName);
+                preparedStatement.setString(5, tableName);
+                preparedStatement.setString(6, partitionStr);
+                preparedStatement.setString(7, location);
 
-                preparedStatement.setInt(5, null == partitionProvincecode ? -1 : Integer.parseInt(partitionProvincecode));
-                preparedStatement.setString(6, partitionDate);
-                preparedStatement.setInt(7, null == partitionWeek ? -1 : Integer.parseInt(partitionWeek));
-                preparedStatement.setInt(8, null == partitionMonth ? -1 : Integer.parseInt(partitionMonth));
-                preparedStatement.setInt(9, null == partitionHour ? -1 : Integer.parseInt(partitionHour));
-                preparedStatement.setDouble(10, null == fileSize ? -1.0 : Double.parseDouble(fileCount));
-                preparedStatement.setInt(11, null == fileCount ? -1 : Integer.parseInt(fileCount));
-                preparedStatement.setDate(12, date);
-                preparedStatement.setDate(13, date);
+//                    preparedStatement.setInt(5, null == partitionProvincecode ? -1 : Integer.parseInt(partitionProvincecode));
+
+                setIntOrNull(preparedStatement, 8, partitionProvincecode);
+                preparedStatement.setString(9, partitionDate);
+//                    preparedStatement.setInt(7, null == partitionWeek ? -1 : Integer.parseInt(partitionWeek));
+//                    preparedStatement.setInt(8, null == partitionMonth ? -1 : Integer.parseInt(partitionMonth));
+//                    preparedStatement.setInt(9, null == partitionHour ? -1 : Integer.parseInt(partitionHour));
+//                    preparedStatement.setDouble(10, null == fileSize ? -1.0 : Double.parseDouble(fileSize));
+//                    preparedStatement.setInt(11, null == fileCount ? -1 : Integer.parseInt(fileCount));
+
+                setIntOrNull(preparedStatement, 10, partitionWeek);
+                setIntOrNull(preparedStatement, 11, partitionMonth);
+                setIntOrNull(preparedStatement, 12, partitionHour);
+                setIntOrDoubleFileSize(preparedStatement, 13, fileSize);
+                setIntOrNull(preparedStatement, 14, fileCount);
+
+                preparedStatement.setTimestamp(15, timestamp);
+                preparedStatement.setTimestamp(16, timestamp);
 
                 preparedStatement.addBatch();
 
 
-                int[] ints = preparedStatement.executeBatch();
-                LOGGER.info("insert 剩余批次， 数量: {}，返回结果result: {}", ints);
-
+                int[] results = preparedStatement.executeBatch();
+                for (int result : results) {
+                    if (result == PreparedStatement.EXECUTE_FAILED) {
+                        conn.rollback(); // 回滚事务
+                        System.out.println("回滚事务" + Arrays.toString(results));
+                    }
+                }
+                System.out.println("insert 剩余批次， 数量: {}，返回结果result:" + Arrays.toString(results));
+                conn.commit();
             } catch (SQLException e) {
                 e.printStackTrace();
                 conn.rollback();
@@ -139,6 +185,34 @@ public class test1 {
 
         } catch (SQLException e) {
             e.printStackTrace();
+        }
+    }
+
+
+
+    public void setIntOrNull(PreparedStatement statement, int parameterIndex, String value) {
+
+        try {
+            if (null == value) {
+                statement.setNull(parameterIndex, Types.INTEGER);
+            } else {
+                statement.setInt(parameterIndex, Integer.parseInt(value));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void setIntOrDoubleFileSize(PreparedStatement statement, int parameterIndex, String value) {
+
+        try {
+            if (null == value) {
+                statement.setNull(parameterIndex, Types.DOUBLE);
+            } else {
+                statement.setDouble(parameterIndex, Double.parseDouble(value));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
 
